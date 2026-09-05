@@ -16,9 +16,32 @@ process.on('unhandledRejection', (err) => {
     server.close(() => process.exit(1));
 });
 
+// Supabase's direct (:5432) host is IPv6-only, and IPv6 egress is flaky on some
+// networks — a single transient failure used to kill the process on boot. Retry
+// with backoff so a blip doesn't take the whole API down.
+const CONNECT_ATTEMPTS = 5;
+
+const connectWithRetry = async () => {
+    for (let attempt = 1; attempt <= CONNECT_ATTEMPTS; attempt += 1) {
+        try {
+            await prisma.$connect();
+            return;
+        } catch (error) {
+            const isLast = attempt === CONNECT_ATTEMPTS;
+            if (isLast) throw error;
+
+            const delayMs = Math.min(1000 * 2 ** (attempt - 1), 8000);
+            console.warn(
+                `⚠️  Database connection attempt ${attempt}/${CONNECT_ATTEMPTS} failed (${error.errorCode || error.code || 'unknown'}) — retrying in ${delayMs}ms`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+    }
+};
+
 const startServer = async () => {
     try {
-        await prisma.$connect();
+        await connectWithRetry();
         console.log('✅ Database connected');
 
         const r2Service = require('./src/services/r2.service');
