@@ -38,7 +38,7 @@ const buildMagicCheckoutLineItems = (summary) =>
             offer_price: pricePaise,
             quantity: item.quantity,
             name: product?.name ?? 'Product',
-            description: `${item.variant.weightGrams}g`,
+            description: item.variant.variantLabel,
             image_url: imageUrl,
         };
     });

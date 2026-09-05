@@ -127,7 +127,7 @@ const getTopProducts = async ({ limit = 10, from, to }) => {
             return {
                 variantId: item.variantId,
                 product: variant?.product,
-                weightGrams: variant?.weightGrams,
+                variantLabel: variant?.variantLabel,
                 totalSold: item._sum.quantity,
                 orderCount: item._count.variantId,
             };

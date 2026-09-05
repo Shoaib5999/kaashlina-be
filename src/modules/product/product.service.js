@@ -114,7 +114,8 @@ const createProduct = async ({
 
                 variants: {
                     create: variants.map((v) => ({
-                        weightGrams: Number(v.weightGrams),
+                        sortValue: Number(v.sortValue),
+                        variantLabel: v.variantLabel,
                         price: Number(v.price),
                         compareAtPrice:
                             v.compareAtPrice != null && v.compareAtPrice !== ''
@@ -201,7 +202,7 @@ const getAdminProducts = async ({
         prisma.product.findMany({
             where,
             include: {
-                variants: { orderBy: { weightGrams: 'asc' } },
+                variants: { orderBy: { sortValue: 'asc' } },
                 images: { orderBy: { sortOrder: 'asc' } },
                 category: true,
                 brand: {
@@ -241,7 +242,8 @@ const fetchAllProducts = async ({
     search,
     sortBy,
     quickFilters,
-    cutTypeSlug,
+    flowerTypeSlug,
+    occasionSlug,
 }) => {
     const resolvedLimit = clampLimit(limit, STOREFRONT_MAX_LIMIT);
     const skip = (page - 1) * resolvedLimit;
@@ -305,20 +307,20 @@ const fetchAllProducts = async ({
         ];
     }
 
-    if (cutTypeSlug) {
-        const cutType = await prisma.cutType.findFirst({
-            where: { slug: cutTypeSlug, isActive: true },
+    if (flowerTypeSlug) {
+        const flowerType = await prisma.flowerType.findFirst({
+            where: { slug: flowerTypeSlug, isActive: true },
         });
 
-        // Multi-cuts may be stored as `cut:Boneless+CurryCut` or separate `cut:Boneless, cut:CurryCut`.
-        // `contains: cut:CurryCut` misses the first format when CurryCut is not first.
-        if (cutType) {
-            const name = cutType.name;
+        // Multi-value tags may be stored as `flower:Rose+Lily` or separate `flower:Rose, flower:Lily`.
+        // `contains: flower:Lily` misses the first format when Lily is not first.
+        if (flowerType) {
+            const name = flowerType.name;
             where.AND = [
                 ...(where.AND || []),
                 {
                     OR: [
-                        { tags: { contains: `cut:${name}` } },
+                        { tags: { contains: `flower:${name}` } },
                         { tags: { contains: `+${name}` } },
                     ],
                 },
@@ -328,9 +330,42 @@ const fetchAllProducts = async ({
                 ...(where.AND || []),
                 {
                     OR: [
-                        { tags: { contains: `cut:${cutTypeSlug}` } },
-                        { tags: { contains: `+${cutTypeSlug}` } },
-                        { tags: { contains: cutTypeSlug } },
+                        { tags: { contains: `flower:${flowerTypeSlug}` } },
+                        { tags: { contains: `+${flowerTypeSlug}` } },
+                        { tags: { contains: flowerTypeSlug } },
+                    ],
+                },
+            ];
+        }
+    }
+
+    if (occasionSlug) {
+        const occasion = await prisma.occasion.findFirst({
+            where: { slug: occasionSlug, isActive: true },
+        });
+
+        // Multi-value tags may be stored as `occasion:Birthday+Anniversary` or separate
+        // `occasion:Birthday, occasion:Anniversary`. `contains: occasion:Anniversary` misses
+        // the first format when Anniversary is not first.
+        if (occasion) {
+            const name = occasion.name;
+            where.AND = [
+                ...(where.AND || []),
+                {
+                    OR: [
+                        { tags: { contains: `occasion:${name}` } },
+                        { tags: { contains: `+${name}` } },
+                    ],
+                },
+            ];
+        } else {
+            where.AND = [
+                ...(where.AND || []),
+                {
+                    OR: [
+                        { tags: { contains: `occasion:${occasionSlug}` } },
+                        { tags: { contains: `+${occasionSlug}` } },
+                        { tags: { contains: occasionSlug } },
                     ],
                 },
             ];
@@ -519,7 +554,7 @@ const fetchProductBySlug = async (slug) => {
         include: {
             variants: {
                 where: { isActive: true },
-                orderBy: { weightGrams: 'asc' },
+                orderBy: { sortValue: 'asc' },
             },
             images: { orderBy: { sortOrder: 'asc' } },
             category: true,
@@ -601,7 +636,7 @@ const updateProduct = async (id, data) => {
         where: { id },
         data: productData,
         include: {
-            variants: { orderBy: { weightGrams: 'asc' } },
+            variants: { orderBy: { sortValue: 'asc' } },
             images: { orderBy: { sortOrder: 'asc' } },
             brand: {
                 select: { id: true, name: true, logoUrl: true },
@@ -628,14 +663,15 @@ const deleteProduct = async (id) => {
     await invalidateProductCache();
 };
 
-const addVariant = async (productId, { weightGrams, price, compareAtPrice, stockQty, sku }) => {
+const addVariant = async (productId, { sortValue, variantLabel, price, compareAtPrice, stockQty, sku }) => {
     const normalizedSKU = normalizeSKU(sku);
     await ensureUniqueVariantSKUs([{ sku: normalizedSKU }]);
 
     const variant = await prisma.productVariant.create({
         data: {
             productId,
-            weightGrams: Number(weightGrams),
+            sortValue: Number(sortValue),
+            variantLabel,
             price: Number(price),
             compareAtPrice:
                 compareAtPrice != null && compareAtPrice !== ''

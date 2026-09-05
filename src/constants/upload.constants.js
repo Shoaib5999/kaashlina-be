@@ -6,7 +6,7 @@ const UPLOAD_FOLDERS = {
     products: 'products',
     banners: 'banners',
     logos: 'logos',
-    cutTypes: 'cut-types',
+    flowerTypes: 'flower-types',
     categories: 'categories',
     sliders: 'sliders',
     general: 'general',

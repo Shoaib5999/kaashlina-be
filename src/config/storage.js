@@ -106,8 +106,8 @@ const uploadLogo = withR2(
     memoryUpload.single('image'),
 );
 
-const uploadCutType = withR2(
-    'cut-types',
+const uploadFlowerType = withR2(
+    'flower-types',
     memoryUpload.single('image'),
 );
 
@@ -149,7 +149,7 @@ module.exports = {
     uploadBanner,
     uploadBanners,
     uploadLogo,
-    uploadCutType,
+    uploadFlowerType,
     uploadCategory,
     uploadSlider,
     uploadProduct,

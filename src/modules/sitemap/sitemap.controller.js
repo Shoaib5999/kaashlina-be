@@ -3,7 +3,7 @@ const prisma = require('../../config/db');
 // Hardcoded to the canonical indexed domain — deliberately not derived from
 // FRONTEND_URL, since that env var also drives OAuth/email redirects and
 // could point elsewhere (e.g. a preview deploy) without the sitemap noticing.
-const SITE_URL = 'https://www.faithfulmeat.in';
+const SITE_URL = 'https://www.kaashlina.in';
 
 const STATIC_URLS = [
     { path: '/', changefreq: 'daily', priority: '1.0' },

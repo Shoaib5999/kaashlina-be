@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const c = require('./cut-type.controller');
+const c = require('./flower-type.controller');
 const { authenticate } = require('../../middlewares/auth.middleware');
 const { authorize } = require('../../middlewares/role.middleware');
 

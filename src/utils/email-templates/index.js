@@ -50,7 +50,7 @@ const welcomeTemplate = ({ name }) =>
     baseLayout(`
     <h2>Welcome, ${name}</h2>
     <p>Thank you for creating an account at <strong>${storeName()}</strong>.</p>
-    <p>Explore our exclusive collection of perfumes and attars crafted with passion.</p>
+    <p>Explore our handcrafted bouquets, cakes, and gift hampers made with love.</p>
     <p>We look forward to serving you.</p>
   `);
 
@@ -66,7 +66,7 @@ const orderConfirmationTemplate = ({ name, order, orderNumber, trackUrl }) => {
         .map(
             (item) => `
       <div class="row">
-        <span>${item.variant?.product?.name || 'Product'} (${item.variant?.weightGrams}g) × ${item.quantity}</span>
+        <span>${item.variant?.product?.name || 'Product'} (${item.variant?.variantLabel}) × ${item.quantity}</span>
         <span>₹${(Number(item.priceAtPurchase) * item.quantity).toFixed(2)}</span>
       </div>`
         )
@@ -181,7 +181,7 @@ const newsletterWelcomeTemplate = ({ email }) =>
     baseLayout(`
     <h2>Welcome to our newsletter</h2>
     <p>Thank you for subscribing with <strong>${email}</strong>.</p>
-    <p>You will be the first to hear about fresh cuts, offers, and stories from the shop.</p>
+    <p>You will be the first to hear about new arrivals, offers, and stories from the shop.</p>
   `);
 
 const refundProcessedTemplate = ({ name, order, amount, reason }) =>

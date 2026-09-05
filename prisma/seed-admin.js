@@ -48,7 +48,7 @@ async function ensureDefaultStaffRoles() {
 async function main() {
     await ensureDefaultStaffRoles();
 
-    const name = 'Faithful Meat Admin';
+    const name = 'Kaashlina Admin';
     const email = process.env.ADMIN_EMAIL;   // change this
     const password = process.env.ADMIN_PASSWORD;           // change this immediately after first login
 

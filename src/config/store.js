@@ -1,4 +1,4 @@
-const DEFAULT_STORE_NAME = 'Faithful Meat';
+const DEFAULT_STORE_NAME = 'Kaashlina';
 
 const isPlaceholderValue = (value) =>
     !value?.trim() || /^your\s/i.test(String(value).trim());

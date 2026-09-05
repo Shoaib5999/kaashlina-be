@@ -32,7 +32,8 @@ const masterdataRoutes = require('./src/modules/masterdata/masterdata.routes');
 const storefrontRoutes = require('./src/modules/storefront/storefront.routes');
 const cmsSliderRoutes = require('./src/modules/cms-slider/cms-slider.routes');
 const cmsHomeImageRoutes = require('./src/modules/cms-home-image/cms-home-image.routes');
-const cutTypeRoutes = require('./src/modules/cut-type/cut-type.routes');
+const flowerTypeRoutes = require('./src/modules/flower-type/flower-type.routes');
+const occasionRoutes = require('./src/modules/occasion/occasion.routes');
 const contactRoutes = require('./src/modules/contact/contact.routes');
 const newsletterRoutes = require('./src/modules/newsletter/newsletter.routes');
 const paymentController = require('./src/modules/payment/payment.controller');
@@ -134,7 +135,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-// ─── SITEMAP (proxied from faithfulmeat.in/sitemap.xml via vercel.json) ──
+// ─── SITEMAP (proxied from kaashlina.in/sitemap.xml via vercel.json) ──
 app.get('/sitemap.xml', sitemapController.generate);
 
 // ─── ROUTES ──────────────────────────────────────────────────────
@@ -166,7 +167,8 @@ app.use('/api/master', masterdataRoutes);
 app.use('/api/storefront', storefrontRoutes);
 app.use('/api/cms/sliders', cmsSliderRoutes);
 app.use('/api/cms/home-images', cmsHomeImageRoutes);
-app.use('/api/cut-types', cutTypeRoutes);
+app.use('/api/flower-types', flowerTypeRoutes);
+app.use('/api/occasions', occasionRoutes);
 app.use('/api/contact', formLimiter, contactRoutes);
 app.use('/api/newsletter', formLimiter, newsletterRoutes);
 

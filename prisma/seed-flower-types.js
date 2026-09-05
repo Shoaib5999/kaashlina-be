@@ -1,39 +1,47 @@
 /**
- * Seed core cut types for CMS + product tags.
- * Run: npm run seed:cut-types
+ * Seed core flower types for CMS + product tags.
+ * Run: npm run seed:flower-types
  */
 
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
 const { PrismaClient } = require('@prisma/client');
 const slugify = require('../src/utils/slugify');
-const { CORE_CUT_TYPE_NAMES } = require('./core-cut-types');
+const { CORE_FLOWER_TYPE_NAMES } = require('./core-flower-types');
 
 const prisma = new PrismaClient();
 
-async function main() {
-  console.log('🥩 Seeding core cut types...\n');
+// Slug overrides for names whose default slugify() output wouldn't match the
+// short, storefront-friendly slug we want (e.g. "Mixed / Assorted" -> "mixed").
+const SLUG_OVERRIDES = {
+  'Mixed / Assorted': 'mixed',
+};
 
-  const coreSlugs = CORE_CUT_TYPE_NAMES.map((name) => slugify(name));
+const resolveSlug = (name) => SLUG_OVERRIDES[name] || slugify(name);
+
+async function main() {
+  console.log('🌸 Seeding core flower types...\n');
+
+  const coreSlugs = CORE_FLOWER_TYPE_NAMES.map((name) => resolveSlug(name));
   let created = 0;
   let updated = 0;
 
-  for (let i = 0; i < CORE_CUT_TYPE_NAMES.length; i += 1) {
-    const name = CORE_CUT_TYPE_NAMES[i];
-    const slug = slugify(name);
-    const existing = await prisma.cutType.findUnique({ where: { slug } });
+  for (let i = 0; i < CORE_FLOWER_TYPE_NAMES.length; i += 1) {
+    const name = CORE_FLOWER_TYPE_NAMES[i];
+    const slug = resolveSlug(name);
+    const existing = await prisma.flowerType.findUnique({ where: { slug } });
 
     if (existing) {
       const patch = { isActive: true, sortOrder: i };
       const unchanged = existing.isActive && existing.sortOrder === i;
       if (!unchanged) {
-        await prisma.cutType.update({ where: { slug }, data: patch });
+        await prisma.flowerType.update({ where: { slug }, data: patch });
         updated += 1;
       }
       continue;
     }
 
-    await prisma.cutType.create({
+    await prisma.flowerType.create({
       data: {
         name,
         slug,
@@ -44,7 +52,7 @@ async function main() {
     created += 1;
   }
 
-  const deactivateResult = await prisma.cutType.updateMany({
+  const deactivateResult = await prisma.flowerType.updateMany({
     where: { slug: { notIn: coreSlugs } },
     data: { isActive: false },
   });

@@ -1,18 +1,18 @@
 /**
- * Seed catalog — Chicken, Mutton, Fish, Seafood, Ready to Cook, Eggs & Combo Packs
+ * Seed catalog — Bouquets, Cakes, Gift Hampers, Plants, Personalized Gifts,
+ * Chocolates & Sweets, plus the two "Build Your Own Bouquet" utility categories.
  *
  * Prerequisites:
  *   - Postgres running + migrations applied
  *   - Master data: npm run seed:master
- *   - Cut types: npm run seed:cut-types
- *   - R2 env vars set in .env
+ *   - Flower types: npm run seed:flower-types
+ *   - Occasions: node prisma/seed-occasions.js
  *
  * Run: npm run seed:products
  *
- * Product photography: each product gets its category's stock photo
- * (uploaded to R2 under categories/<slug>.jpg) as a placeholder image,
- * since we don't have per-product photography yet. Replace with real
- * per-product photos via the admin upload UI whenever available.
+ * Product photography: each product gets a curated Unsplash stock photo as a
+ * placeholder image, since we don't have per-product photography yet. Replace
+ * with real per-product photos via the admin upload UI whenever available.
  */
 
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
@@ -24,94 +24,436 @@ const { CATALOG_DETAILS } = require('./product-catalog-details');
 
 const prisma = new PrismaClient();
 
-/** Category placeholder photos already uploaded to R2 under categories/<slug>.jpg. */
-const CATEGORY_IMAGE_KEYS = {
-  chicken: 'categories/chicken.jpg',
-  mutton: 'categories/mutton.jpg',
-  fish: 'categories/fish.jpg',
-  seafood: 'categories/seafood.jpg',
-  'ready-to-cook': 'categories/ready-to-cook.jpg',
-  eggs: 'categories/eggs.jpg',
-  'combo-packs': 'categories/combo-packs.jpg',
-};
-
 // Storefront collection badges (stored as badge:<slug> in product tags)
 const BADGE = {
   BEST_SELLERS: 'best-sellers',
   NEW_ARRIVALS: 'new-arrivals',
 };
 
-// ─── Pricing helpers ────────────────────────────────────────────────────────
+// ─── Image pools (verified Unsplash direct URLs, reused sensibly by type) ───
 
-/** Round to the nearest ₹5, matching how the shop prices weighed cuts. */
-const round5 = (n) => Math.round(n / 5) * 5;
+const unsplash = (id) => `https://images.unsplash.com/${id}?w=1200&q=80&auto=format&fit=crop`;
 
-/** Scale a 1kg reference price down/up to each weight (grams), rounded to ₹5. */
-const scaleVariants = (kgPrice, gramsList) =>
-  gramsList.map((weightGrams) => ({
-    weightGrams,
-    price: round5((kgPrice * weightGrams) / 1000),
-  }));
+const FLOWER_IMAGES = [
+  'photo-1490750967868-88aa4486c946',
+  'photo-1487070183336-b863922373d4',
+  'photo-1518895949257-7621c3c786d7',
+  'photo-1519378058457-4c29a0a2efac',
+  'photo-1465146344425-f00d5f5c8f07',
+  'photo-1509440159596-0249088772ff',
+  'photo-1560184897-ae75f418493e',
+  'photo-1464349095431-e9a21285b5f3',
+  'photo-1478146059778-26028b07395a',
+  'photo-1522673607200-164d1b6ce486',
+  'photo-1571781926291-c477ebfd024b',
+  'photo-1522770179533-24471fcdba45',
+  'photo-1587049633312-d628ae50a8ae',
+  'photo-1533038590840-1cde6e668a91',
+  'photo-1519681393784-d120267933ba',
+  'photo-1558636508-e0db3814bd1d',
+  'photo-1464349153735-7db50ed83c84',
+  'photo-1571115177098-24ec42ed204d',
+].map(unsplash);
 
-// ─── CHICKEN ────────────────────────────────────────────────────────────────
+const CAKE_IMAGES = [
+  'photo-1550617931-e17a7b70dce2',
+  'photo-1519750783826-e2420f4d687f',
+  'photo-1464195244916-405fa0a82545',
+  'photo-1486427944299-d1955d23e34d',
+  'photo-1587668178277-295251f900ce',
+  'photo-1607478900766-efe13248b125',
+].map(unsplash);
 
-const CHICKEN_PRODUCTS = [
-  { name: 'Chicken Curry Cut', badge: BADGE.BEST_SELLERS, variants: scaleVariants(220, [250, 500, 1000, 2000]) },
-  { name: 'Chicken Breast Boneless', variants: scaleVariants(270, [250, 500, 1000, 2000]) },
-  { name: 'Whole Chicken (Skinless)', variants: scaleVariants(210, [500, 1000, 2000]) },
+const GIFT_IMAGES = [
+  'photo-1567620905732-2d1ec7ab7445',
+  'photo-1517686469429-8bdb88b9f907',
+  'photo-1512428813834-c702c7702b78',
+  'photo-1544787219-7f47ccb76574',
+  'photo-1587502537745-84b86da1204f',
+  'photo-1519741497674-611481863552',
+  'photo-1587393855524-087f83d95bc9',
+  'photo-1523294587484-bae6cc870010',
+  'photo-1531956531700-dc0ee0f1f9a5',
+  'photo-1502741224143-90386d7f8c82',
+  'photo-1494972308805-463bc619d34e',
+  'photo-1560448204-e02f11c3d0e2',
+  'photo-1520763185298-1b434c919102',
+  'photo-1425421669292-0c3da3b8f529',
+].map(unsplash);
+
+// ─── Variant helpers (variantLabel is the only thing ever shown to buyers;   ─
+// ─ sortValue is purely for internal ordering, no implied unit)              ─
+
+const bouquetVariants = (p6, p12, p24) => [
+  { variantLabel: '6 Stems', sortValue: 6, price: p6 },
+  { variantLabel: '12 Stems', sortValue: 12, price: p12 },
+  { variantLabel: '24 Stems', sortValue: 24, price: p24 },
 ];
 
-// ─── MUTTON ─────────────────────────────────────────────────────────────────
-
-const MUTTON_PRODUCTS = [
-  { name: 'Mutton Boneless', variants: scaleVariants(820, [250, 500, 1000]) },
-  { name: 'Mutton Curry Cut', badge: BADGE.BEST_SELLERS, variants: scaleVariants(560, [250, 500, 1000]) },
-  { name: 'Mutton Keema', variants: scaleVariants(480, [250, 500, 1000]) },
-  { name: 'Mutton Seekh Cut', variants: scaleVariants(600, [250, 500, 1000]) },
+const cakeVariants = (p500g, p1kg, p2kg) => [
+  { variantLabel: '500g', sortValue: 500, price: p500g },
+  { variantLabel: '1kg', sortValue: 1000, price: p1kg },
+  { variantLabel: '2kg', sortValue: 2000, price: p2kg },
 ];
 
-// ─── FISH ───────────────────────────────────────────────────────────────────
-
-const FISH_PRODUCTS = [
-  { name: 'Fresh Rohu Fish', variants: scaleVariants(360, [500, 1000, 2000]) },
-  { name: 'Fish Steak Cut (Surmai)', variants: scaleVariants(650, [250, 500, 1000]) },
+const countVariants = (unitLabel, c1, c2, c3, p1, p2, p3) => [
+  { variantLabel: `${unitLabel} of ${c1}`, sortValue: c1, price: p1 },
+  { variantLabel: `${unitLabel} of ${c2}`, sortValue: c2, price: p2 },
+  { variantLabel: `${unitLabel} of ${c3}`, sortValue: c3, price: p3 },
 ];
 
-// ─── SEAFOOD ────────────────────────────────────────────────────────────────
-
-const SEAFOOD_PRODUCTS = [
-  { name: 'Prawns (Medium)', badge: BADGE.BEST_SELLERS, variants: scaleVariants(550, [250, 500, 1000]) },
-  { name: 'Tiger Prawns (Large)', variants: scaleVariants(750, [250, 500, 1000]) },
+const hamperVariants = (pS, pM, pL) => [
+  { variantLabel: 'Small', sortValue: 1, price: pS },
+  { variantLabel: 'Medium', sortValue: 2, price: pM },
+  { variantLabel: 'Large', sortValue: 3, price: pL },
 ];
 
-// ─── READY TO COOK ──────────────────────────────────────────────────────────
-
-const READY_TO_COOK_PRODUCTS = [
-  { name: 'Chicken Seekh Kebab Mix', variants: scaleVariants(380, [250, 500, 1000]) },
-  { name: 'Chicken Curry Marinated', badge: BADGE.NEW_ARRIVALS, variants: scaleVariants(260, [250, 500, 1000]) },
+const plantVariants = (p6in, p10in) => [
+  { variantLabel: '6-inch Pot', sortValue: 6, price: p6in },
+  { variantLabel: '10-inch Pot', sortValue: 10, price: p10in },
 ];
 
-// ─── EGGS (flat single-variant pricing, not scaled from a kg reference) ─────
-
-const EGGS_PRODUCTS = [
-  { name: 'Farm Fresh Eggs (6 Pcs Tray)', variants: [{ weightGrams: 300, price: 60 }] },
-  { name: 'Farm Fresh Eggs (12 Pcs Tray)', variants: [{ weightGrams: 600, price: 115 }] },
-  { name: 'Farm Fresh Eggs (30 Pcs Tray)', variants: [{ weightGrams: 1500, price: 270 }] },
+const personalizedVariants = (pClassic, pPremium) => [
+  { variantLabel: 'Classic', sortValue: 1, price: pClassic },
+  { variantLabel: 'Premium', sortValue: 2, price: pPremium },
 ];
 
-// ─── COMBO PACKS (flat single-variant pricing) ──────────────────────────────
+const chocolateBoxVariants = (p250, p500, p1kg) => [
+  { variantLabel: '250g Box', sortValue: 250, price: p250 },
+  { variantLabel: '500g Box', sortValue: 500, price: p500 },
+  { variantLabel: '1kg Box', sortValue: 1000, price: p1kg },
+];
 
-const COMBO_PRODUCTS = [
+const singleVariant = (label, price) => [{ variantLabel: label, sortValue: 1, price }];
+
+// ─── Product catalog ─────────────────────────────────────────────────────────
+// categorySlug is the CHILD category slug (or the parent slug for categories
+// with no children, e.g. chocolates-sweets and the two builder categories).
+
+const PRODUCTS = [
+  // ── BOUQUETS ──────────────────────────────────────────────────────────────
   {
-    name: 'Weekly Non-Veg Combo (Chicken + Mutton + Fish)',
-    slug: 'weekly-non-veg-combo',
-    badge: BADGE.NEW_ARRIVALS,
-    variants: [{ weightGrams: 3000, price: 1450 }],
+    name: 'Crimson Rose Bouquet',
+    categorySlug: 'rose-bouquets',
+    flowerSlugs: ['rose'],
+    occasionSlugs: ['romance-apology', 'birthday'],
+    badge: BADGE.BEST_SELLERS,
+    variants: bouquetVariants(599, 1099, 1999),
+    image: FLOWER_IMAGES[0],
   },
   {
-    name: 'Family BBQ Combo Pack',
+    name: 'Pastel Pink Rose Bouquet',
+    categorySlug: 'rose-bouquets',
+    flowerSlugs: ['rose'],
+    occasionSlugs: ['anniversary'],
+    variants: bouquetVariants(649, 1149, 2099),
+    image: FLOWER_IMAGES[1],
+  },
+  {
+    name: 'Rainbow Garden Bouquet',
+    categorySlug: 'mixed-bouquets',
+    flowerSlugs: ['mixed'],
+    occasionSlugs: ['birthday'],
     badge: BADGE.NEW_ARRIVALS,
-    variants: [{ weightGrams: 2000, price: 950 }],
+    variants: bouquetVariants(549, 999, 1799),
+    image: FLOWER_IMAGES[2],
+  },
+  {
+    name: 'Spring Meadow Mixed Bouquet',
+    categorySlug: 'mixed-bouquets',
+    flowerSlugs: ['mixed'],
+    occasionSlugs: ['get-well-soon'],
+    variants: bouquetVariants(499, 899, 1599),
+    image: FLOWER_IMAGES[3],
+  },
+  {
+    name: 'Lavish Orchid & Lily Arrangement',
+    categorySlug: 'premium-bouquets',
+    flowerSlugs: ['orchid', 'lily'],
+    occasionSlugs: ['wedding'],
+    badge: BADGE.BEST_SELLERS,
+    variants: bouquetVariants(999, 1799, 3199),
+    image: FLOWER_IMAGES[4],
+  },
+  {
+    name: 'Grand Peony Luxe Bouquet',
+    categorySlug: 'premium-bouquets',
+    flowerSlugs: ['peony'],
+    occasionSlugs: ['anniversary'],
+    variants: bouquetVariants(1099, 1999, 3499),
+    image: FLOWER_IMAGES[5],
+  },
+  {
+    name: 'Everlasting Dried Bouquet',
+    categorySlug: 'dried-flowers',
+    flowerSlugs: ['mixed'],
+    occasionSlugs: ['housewarming'],
+    variants: bouquetVariants(799, 1399, 2499),
+    image: FLOWER_IMAGES[6],
+  },
+
+  // ── CAKES ─────────────────────────────────────────────────────────────────
+  {
+    name: 'Chocolate Truffle Birthday Cake',
+    categorySlug: 'birthday-cakes',
+    occasionSlugs: ['birthday'],
+    badge: BADGE.BEST_SELLERS,
+    variants: cakeVariants(549, 949, 1749),
+    image: CAKE_IMAGES[0],
+  },
+  {
+    name: 'Rainbow Sprinkle Cake',
+    categorySlug: 'birthday-cakes',
+    occasionSlugs: ['birthday'],
+    variants: cakeVariants(599, 999, 1849),
+    image: CAKE_IMAGES[1],
+  },
+  {
+    name: 'Red Velvet Anniversary Cake',
+    categorySlug: 'anniversary-cakes',
+    occasionSlugs: ['anniversary'],
+    variants: cakeVariants(649, 1099, 1999),
+    image: CAKE_IMAGES[2],
+  },
+  {
+    name: 'Two-Tier Vanilla Bliss Cake',
+    categorySlug: 'anniversary-cakes',
+    occasionSlugs: ['anniversary'],
+    badge: BADGE.NEW_ARRIVALS,
+    variants: cakeVariants(699, 1199, 2199),
+    image: CAKE_IMAGES[3],
+  },
+  {
+    name: 'Custom Photo Print Cake',
+    categorySlug: 'photo-cakes',
+    occasionSlugs: ['birthday'],
+    variants: cakeVariants(649, 1149, 2099),
+    image: CAKE_IMAGES[4],
+  },
+  {
+    name: 'Personalized Photo Cake (Chocolate)',
+    categorySlug: 'photo-cakes',
+    occasionSlugs: ['congratulations'],
+    variants: cakeVariants(699, 1199, 2199),
+    image: CAKE_IMAGES[5],
+  },
+  {
+    name: 'Assorted Cupcake Box',
+    categorySlug: 'cupcakes',
+    occasionSlugs: ['birthday'],
+    variants: countVariants('Box', 6, 12, 24, 349, 649, 1199),
+    image: CAKE_IMAGES[0],
+  },
+  {
+    name: 'Chocolate Jar Cake Duo',
+    categorySlug: 'cupcakes',
+    occasionSlugs: ['just-because'],
+    badge: BADGE.NEW_ARRIVALS,
+    variants: [
+      { variantLabel: '2 Jars', sortValue: 2, price: 399 },
+      { variantLabel: '4 Jars', sortValue: 4, price: 749 },
+      { variantLabel: '6 Jars', sortValue: 6, price: 1099 },
+    ],
+    image: CAKE_IMAGES[1],
+  },
+
+  // ── GIFT HAMPERS ──────────────────────────────────────────────────────────
+  {
+    name: 'Premium Chocolate Gift Hamper',
+    categorySlug: 'chocolate-hampers',
+    occasionSlugs: ['congratulations'],
+    badge: BADGE.BEST_SELLERS,
+    variants: hamperVariants(899, 1599, 2699),
+    image: GIFT_IMAGES[0],
+  },
+  {
+    name: 'Belgian Chocolate Delight Box',
+    categorySlug: 'chocolate-hampers',
+    occasionSlugs: ['corporate'],
+    variants: hamperVariants(799, 1399, 2399),
+    image: GIFT_IMAGES[1],
+  },
+  {
+    name: 'Relax & Rejuvenate Spa Hamper',
+    categorySlug: 'spa-hampers',
+    occasionSlugs: ['get-well-soon'],
+    variants: hamperVariants(999, 1799, 2999),
+    image: GIFT_IMAGES[2],
+  },
+  {
+    name: 'Aroma Wellness Gift Set',
+    categorySlug: 'spa-hampers',
+    occasionSlugs: ['housewarming'],
+    variants: hamperVariants(849, 1549, 2649),
+    image: GIFT_IMAGES[3],
+  },
+  {
+    name: 'Flowers & Cake Combo Hamper',
+    categorySlug: 'combo-hampers',
+    occasionSlugs: ['birthday'],
+    badge: BADGE.BEST_SELLERS,
+    variants: hamperVariants(1099, 1899, 3199),
+    image: GIFT_IMAGES[4],
+  },
+  {
+    name: 'Cake & Chocolates Celebration Combo',
+    categorySlug: 'combo-hampers',
+    occasionSlugs: ['anniversary'],
+    variants: hamperVariants(999, 1749, 2949),
+    image: GIFT_IMAGES[5],
+  },
+
+  // ── PLANTS ────────────────────────────────────────────────────────────────
+  {
+    name: 'Money Plant in Ceramic Pot',
+    categorySlug: 'indoor-plants',
+    occasionSlugs: ['housewarming'],
+    badge: BADGE.NEW_ARRIVALS,
+    variants: plantVariants(399, 699),
+    image: GIFT_IMAGES[6],
+  },
+  {
+    name: 'Areca Palm Indoor Plant',
+    categorySlug: 'indoor-plants',
+    occasionSlugs: ['housewarming'],
+    variants: plantVariants(499, 849),
+    image: GIFT_IMAGES[7],
+  },
+  {
+    name: 'Assorted Succulent Trio',
+    categorySlug: 'succulents',
+    occasionSlugs: ['just-because'],
+    variants: plantVariants(349, 599),
+    image: GIFT_IMAGES[8],
+  },
+  {
+    name: 'Glass Terrarium Garden',
+    categorySlug: 'succulents',
+    occasionSlugs: ['corporate'],
+    badge: BADGE.NEW_ARRIVALS,
+    variants: plantVariants(599, 999),
+    image: GIFT_IMAGES[9],
+  },
+
+  // ── PERSONALIZED GIFTS ────────────────────────────────────────────────────
+  {
+    name: 'Personalized Photo Mug',
+    categorySlug: 'photo-frames-mugs',
+    occasionSlugs: ['birthday'],
+    variants: personalizedVariants(399, 599),
+    image: GIFT_IMAGES[10],
+  },
+  {
+    name: 'Custom Engraved Photo Frame',
+    categorySlug: 'photo-frames-mugs',
+    occasionSlugs: ['anniversary'],
+    variants: personalizedVariants(499, 799),
+    image: GIFT_IMAGES[11],
+  },
+  {
+    name: 'Personalized Photo Cushion',
+    categorySlug: 'cushions-keepsakes',
+    occasionSlugs: ['just-because'],
+    variants: personalizedVariants(549, 849),
+    image: GIFT_IMAGES[12],
+  },
+  {
+    name: 'Engraved Wooden Keepsake Box',
+    categorySlug: 'cushions-keepsakes',
+    occasionSlugs: ['farewell'],
+    badge: BADGE.NEW_ARRIVALS,
+    variants: personalizedVariants(699, 1099),
+    image: GIFT_IMAGES[13],
+  },
+
+  // ── CHOCOLATES & SWEETS (no sub-categories) ──────────────────────────────
+  {
+    name: 'Assorted Belgian Chocolate Box',
+    categorySlug: 'chocolates-sweets',
+    occasionSlugs: ['congratulations'],
+    badge: BADGE.BEST_SELLERS,
+    variants: chocolateBoxVariants(399, 699, 1299),
+    image: GIFT_IMAGES[0],
+  },
+
+  // ── BOUQUET BUILDER · STEMS (single-variant, sold per stem/bunch) ────────
+  {
+    name: 'Red Rose (Single Stem)',
+    categorySlug: 'bouquet-builder-stems',
+    flowerSlugs: ['rose'],
+    variants: singleVariant('1 Stem', 79),
+    image: FLOWER_IMAGES[7],
+  },
+  {
+    name: 'White Lily (Single Stem)',
+    categorySlug: 'bouquet-builder-stems',
+    flowerSlugs: ['lily'],
+    variants: singleVariant('1 Stem', 99),
+    image: FLOWER_IMAGES[8],
+  },
+  {
+    name: 'Pink Tulip (Single Stem)',
+    categorySlug: 'bouquet-builder-stems',
+    flowerSlugs: ['tulip'],
+    variants: singleVariant('1 Stem', 89),
+    image: FLOWER_IMAGES[9],
+  },
+  {
+    name: 'Pink Peony (Single Stem)',
+    categorySlug: 'bouquet-builder-stems',
+    flowerSlugs: ['peony'],
+    variants: singleVariant('1 Stem', 149),
+    image: FLOWER_IMAGES[10],
+  },
+  {
+    name: 'Eucalyptus Filler',
+    categorySlug: 'bouquet-builder-stems',
+    variants: singleVariant('1 Bunch', 59),
+    image: FLOWER_IMAGES[11],
+  },
+  {
+    name: "Baby's Breath Filler",
+    categorySlug: 'bouquet-builder-stems',
+    variants: singleVariant('1 Bunch', 49),
+    image: FLOWER_IMAGES[12],
+  },
+
+  // ── BOUQUET BUILDER · ADD-ONS (single-variant) ───────────────────────────
+  {
+    name: 'Satin Ribbon',
+    categorySlug: 'bouquet-builder-addons',
+    variants: singleVariant('Standard', 49),
+    image: GIFT_IMAGES[1],
+  },
+  {
+    name: 'Premium Wrapping Paper',
+    categorySlug: 'bouquet-builder-addons',
+    variants: singleVariant('Standard', 99),
+    image: GIFT_IMAGES[2],
+  },
+  {
+    name: 'Handwritten Greeting Card',
+    categorySlug: 'bouquet-builder-addons',
+    variants: singleVariant('Standard', 49),
+    image: GIFT_IMAGES[3],
+  },
+  {
+    name: 'Box of Chocolates',
+    categorySlug: 'bouquet-builder-addons',
+    variants: singleVariant('Standard', 299),
+    image: GIFT_IMAGES[4],
+  },
+  {
+    name: 'Small Teddy Bear',
+    categorySlug: 'bouquet-builder-addons',
+    variants: singleVariant('Standard', 399),
+    image: GIFT_IMAGES[5],
+  },
+  {
+    name: 'Scented Candle',
+    categorySlug: 'bouquet-builder-addons',
+    variants: singleVariant('Standard', 349),
+    image: GIFT_IMAGES[6],
   },
 ];
 
@@ -126,17 +468,11 @@ const stockQtyForSku = (sku) => {
   return 40 + (hash % 41);
 };
 
-const buildTags = ({ tagType, cutType, badge = null, highlightTags = [] }) => {
-  const parts = [`type:${tagType}`, tagType];
-  if (cutType) parts.push(`cut:${cutType}`);
-
+const buildTags = ({ flowerSlugs = [], occasionSlugs = [], badge = null }) => {
+  const parts = [];
   if (badge) parts.push(`badge:${badge}`);
-
-  highlightTags.forEach((tag) => {
-    const t = String(tag).trim();
-    if (t) parts.push(t);
-  });
-
+  flowerSlugs.forEach((slug) => parts.push(`flower:${slug}`));
+  occasionSlugs.forEach((slug) => parts.push(`occasion:${slug}`));
   return parts.join(',');
 };
 
@@ -151,11 +487,16 @@ const resolveCatalogDetails = (slug) => {
   return details;
 };
 
+/** Derive a stable, readable SKU suffix from the variant's customer-facing label. */
+const variantSkuSuffix = (label) => slugify(label).toUpperCase();
+
 const buildVariantDefs = (slug, variants) =>
-  variants.map(({ weightGrams, price }) => {
-    const sku = normalizeSKU(`FTM-${slug.replace(/-/g, '').toUpperCase()}-${weightGrams}G`);
+  variants.map(({ variantLabel, sortValue, price }) => {
+    const productPart = slug.replace(/-/g, '').toUpperCase();
+    const sku = normalizeSKU(`KSH-${productPart}-${variantSkuSuffix(variantLabel)}`);
     return {
-      weightGrams,
+      variantLabel,
+      sortValue,
       price,
       compareAtPrice: null,
       stockQty: stockQtyForSku(sku),
@@ -174,7 +515,8 @@ const syncVariants = async (productId, variantDefs) => {
       await prisma.productVariant.update({
         where: { id: existing.id },
         data: {
-          weightGrams: v.weightGrams,
+          variantLabel: v.variantLabel,
+          sortValue: v.sortValue,
           price: v.price,
           compareAtPrice: v.compareAtPrice,
           stockQty: v.stockQty,
@@ -187,7 +529,8 @@ const syncVariants = async (productId, variantDefs) => {
     await prisma.productVariant.create({
       data: {
         productId,
-        weightGrams: v.weightGrams,
+        variantLabel: v.variantLabel,
+        sortValue: v.sortValue,
         price: v.price,
         compareAtPrice: v.compareAtPrice,
         stockQty: v.stockQty,
@@ -204,24 +547,19 @@ const syncVariants = async (productId, variantDefs) => {
   });
 };
 
-/** Assign (or refresh) the product's primary image from its category's placeholder photo. */
-const ensureCategoryImage = async (productId, tagType) => {
-  const key = CATEGORY_IMAGE_KEYS[tagType];
-  if (!key) return;
-
-  const publicBase = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
-  if (!publicBase) return;
-  const url = `${publicBase}/${key}`;
+/** Assign (or refresh) the product's primary image from its curated stock photo URL. */
+const ensureProductImage = async (productId, imageUrl) => {
+  if (!imageUrl) return;
 
   const existing = await prisma.productImage.findFirst({
     where: { productId, isPrimary: true },
   });
 
   if (existing) {
-    if (existing.url !== url || existing.cloudinaryId !== key) {
+    if (existing.url !== imageUrl) {
       await prisma.productImage.update({
         where: { id: existing.id },
-        data: { cloudinaryId: key, url },
+        data: { url: imageUrl, cloudinaryId: imageUrl },
       });
     }
     return;
@@ -230,8 +568,8 @@ const ensureCategoryImage = async (productId, tagType) => {
   await prisma.productImage.create({
     data: {
       productId,
-      cloudinaryId: key,
-      url,
+      cloudinaryId: imageUrl,
+      url: imageUrl,
       isPrimary: true,
       sortOrder: 0,
     },
@@ -248,7 +586,7 @@ const upsertProduct = async ({
   storefrontMeta,
   description,
   variantDefs,
-  tagType,
+  image,
   sortOrder = 0,
 }) => {
   let product = await prisma.product.findUnique({
@@ -284,15 +622,13 @@ const upsertProduct = async ({
   }
 
   await syncVariants(product.id, variantDefs);
-  await ensureCategoryImage(product.id, tagType);
+  await ensureProductImage(product.id, image);
 
   return product;
 };
 
 const getCategoryBySlug = async (slug) => {
-  const category = await prisma.category.findFirst({
-    where: { slug, parentId: null },
-  });
+  const category = await prisma.category.findFirst({ where: { slug } });
   if (!category) {
     throw new Error(`Category "${slug}" not found. Run npm run seed:master first.`);
   }
@@ -301,18 +637,18 @@ const getCategoryBySlug = async (slug) => {
 
 const ensureDefaultTaxClass = async () =>
   (await prisma.taxClass.findFirst({ where: { isDefault: true } })) ||
-  (await prisma.taxClass.findFirst({ where: { name: 'Exempt (Fresh Meat)' } })) ||
+  (await prisma.taxClass.findFirst({ where: { name: 'Exempt (Fresh Flowers)' } })) ||
   prisma.taxClass.create({
-    data: { name: 'Exempt (Fresh Meat)', rate: 0, isDefault: true, isActive: true },
+    data: { name: 'Exempt (Fresh Flowers)', rate: 0, isDefault: true, isActive: true },
   });
 
-const ensureFaithfulMeatBrand = async () =>
+const ensureKaashlinaBrand = async () =>
   prisma.brand.upsert({
-    where: { slug: 'faithful-meat' },
-    update: { name: 'Faithful Meat', isActive: true, isFeatured: true },
+    where: { slug: 'kaashlina' },
+    update: { name: 'Kaashlina', isActive: true, isFeatured: true },
     create: {
-      name: 'Faithful Meat',
-      slug: 'faithful-meat',
+      name: 'Kaashlina',
+      slug: 'kaashlina',
       isActive: true,
       isFeatured: true,
       sortOrder: 1,
@@ -321,15 +657,7 @@ const ensureFaithfulMeatBrand = async () =>
 
 const productSlug = (def) => def.slug || slugify(def.name);
 
-const collectSeedSlugs = () => [
-  ...CHICKEN_PRODUCTS.map(productSlug),
-  ...MUTTON_PRODUCTS.map(productSlug),
-  ...FISH_PRODUCTS.map(productSlug),
-  ...SEAFOOD_PRODUCTS.map(productSlug),
-  ...READY_TO_COOK_PRODUCTS.map(productSlug),
-  ...EGGS_PRODUCTS.map(productSlug),
-  ...COMBO_PRODUCTS.map(productSlug),
-];
+const collectSeedSlugs = () => PRODUCTS.map(productSlug);
 
 const archiveLegacyProducts = async (keepSlugs) => {
   const legacy = await prisma.product.findMany({
@@ -372,152 +700,59 @@ const assertCatalogCoverage = () => {
   }
 };
 
-const seedProductGroup = async ({
-  defs,
-  categoryId,
-  brandId,
-  taxClassId,
-  tagType,
-}) => {
-  let created = 0;
-  let updated = 0;
-
-  for (let index = 0; index < defs.length; index += 1) {
-    const def = defs[index];
-    const slug = productSlug(def);
-    const catalog = resolveCatalogDetails(slug);
-    const before = await prisma.product.findUnique({ where: { slug } });
-
-    await upsertProduct({
-      slug,
-      name: def.name,
-      categoryId,
-      brandId,
-      taxClassId: taxClassId.id,
-      tags: buildTags({
-        tagType,
-        cutType: catalog.cutType,
-        badge: def.badge ?? null,
-        highlightTags: def.highlightTags ?? [],
-      }),
-      storefrontMeta: catalog.storefrontMeta,
-      description: catalog.description,
-      variantDefs: buildVariantDefs(slug, def.variants),
-      tagType,
-      sortOrder: index + 1,
-    });
-
-    before ? updated++ : created++;
-  }
-
-  return { created, updated };
-};
-
 async function main() {
-  console.log('🥩 Seeding Chicken, Mutton, Fish, Seafood, Ready to Cook, Eggs & Combo Packs...\n');
+  console.log('🌸 Seeding Bouquets, Cakes, Gift Hampers, Plants, Personalized Gifts & Chocolates...\n');
 
   assertCatalogCoverage();
 
   const seedSlugs = collectSeedSlugs();
   await archiveLegacyProducts(seedSlugs);
 
-  const [taxClass, brand, catChicken, catMutton, catFish, catSeafood, catReadyToCook, catEggs, catCombo] =
-    await Promise.all([
-      ensureDefaultTaxClass(),
-      ensureFaithfulMeatBrand(),
-      getCategoryBySlug('chicken'),
-      getCategoryBySlug('mutton'),
-      getCategoryBySlug('fish'),
-      getCategoryBySlug('seafood'),
-      getCategoryBySlug('ready-to-cook'),
-      getCategoryBySlug('eggs'),
-      getCategoryBySlug('combo-packs'),
-    ]);
+  const [taxClass, brand] = await Promise.all([ensureDefaultTaxClass(), ensureKaashlinaBrand()]);
 
   console.log(`  Brand       : ${brand.name}`);
-  console.log(`  Tax class   : ${taxClass.name}`);
-  console.log(
-    `  Categories  : ${catChicken.name} | ${catMutton.name} | ${catFish.name} | ${catSeafood.name} | ${catReadyToCook.name} | ${catEggs.name} | ${catCombo.name}\n`,
-  );
+  console.log(`  Tax class   : ${taxClass.name}\n`);
 
-  console.log('── CHICKEN ─────────────────────────────────────────');
-  const chickenStats = await seedProductGroup({
-    defs: CHICKEN_PRODUCTS,
-    categoryId: catChicken.id,
-    brandId: brand.id,
-    taxClassId: taxClass,
-    tagType: 'chicken',
-  });
+  const categoryCache = new Map();
+  const resolveCategory = async (slug) => {
+    if (!categoryCache.has(slug)) {
+      categoryCache.set(slug, await getCategoryBySlug(slug));
+    }
+    return categoryCache.get(slug);
+  };
 
-  console.log('\n── MUTTON ──────────────────────────────────────────');
-  const muttonStats = await seedProductGroup({
-    defs: MUTTON_PRODUCTS,
-    categoryId: catMutton.id,
-    brandId: brand.id,
-    taxClassId: taxClass,
-    tagType: 'mutton',
-  });
+  let created = 0;
+  let updated = 0;
 
-  console.log('\n── FISH ────────────────────────────────────────────');
-  const fishStats = await seedProductGroup({
-    defs: FISH_PRODUCTS,
-    categoryId: catFish.id,
-    brandId: brand.id,
-    taxClassId: taxClass,
-    tagType: 'fish',
-  });
+  for (let index = 0; index < PRODUCTS.length; index += 1) {
+    const def = PRODUCTS[index];
+    const slug = productSlug(def);
+    const catalog = resolveCatalogDetails(slug);
+    const category = await resolveCategory(def.categorySlug);
+    const before = await prisma.product.findUnique({ where: { slug } });
 
-  console.log('\n── SEAFOOD ─────────────────────────────────────────');
-  const seafoodStats = await seedProductGroup({
-    defs: SEAFOOD_PRODUCTS,
-    categoryId: catSeafood.id,
-    brandId: brand.id,
-    taxClassId: taxClass,
-    tagType: 'seafood',
-  });
+    await upsertProduct({
+      slug,
+      name: def.name,
+      categoryId: category.id,
+      brandId: brand.id,
+      taxClassId: taxClass.id,
+      tags: buildTags(def),
+      storefrontMeta: catalog.storefrontMeta,
+      description: catalog.description,
+      variantDefs: buildVariantDefs(slug, def.variants),
+      image: def.image,
+      sortOrder: index + 1,
+    });
 
-  console.log('\n── READY TO COOK ───────────────────────────────────');
-  const readyToCookStats = await seedProductGroup({
-    defs: READY_TO_COOK_PRODUCTS,
-    categoryId: catReadyToCook.id,
-    brandId: brand.id,
-    taxClassId: taxClass,
-    tagType: 'ready-to-cook',
-  });
-
-  console.log('\n── EGGS ────────────────────────────────────────────');
-  const eggsStats = await seedProductGroup({
-    defs: EGGS_PRODUCTS,
-    categoryId: catEggs.id,
-    brandId: brand.id,
-    taxClassId: taxClass,
-    tagType: 'eggs',
-  });
-
-  console.log('\n── COMBO PACKS ─────────────────────────────────────');
-  const comboStats = await seedProductGroup({
-    defs: COMBO_PRODUCTS,
-    categoryId: catCombo.id,
-    brandId: brand.id,
-    taxClassId: taxClass,
-    tagType: 'combo-packs',
-  });
-
-  const groups = [chickenStats, muttonStats, fishStats, seafoodStats, readyToCookStats, eggsStats, comboStats];
-  const created = groups.reduce((sum, g) => sum + g.created, 0);
-  const updated = groups.reduce((sum, g) => sum + g.updated, 0);
+    before ? updated++ : created++;
+  }
 
   console.log('\n────────────────────────────────────────────────────');
   console.log(`✅ Done. ${created + updated} products processed.`);
   console.log(`   New: ${created} | Updated: ${updated}`);
-  console.log(`   Chicken        : ${CHICKEN_PRODUCTS.length}`);
-  console.log(`   Mutton         : ${MUTTON_PRODUCTS.length}`);
-  console.log(`   Fish           : ${FISH_PRODUCTS.length}`);
-  console.log(`   Seafood        : ${SEAFOOD_PRODUCTS.length}`);
-  console.log(`   Ready to Cook  : ${READY_TO_COOK_PRODUCTS.length}`);
-  console.log(`   Eggs           : ${EGGS_PRODUCTS.length}`);
-  console.log(`   Combo Packs    : ${COMBO_PRODUCTS.length}`);
-  console.log('   Brand          : Faithful Meat (all products)');
+  console.log(`   Total products in seed : ${PRODUCTS.length}`);
+  console.log('   Brand                  : Kaashlina (all products)');
 }
 
 main()

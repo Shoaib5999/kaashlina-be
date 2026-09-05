@@ -106,12 +106,12 @@ async function main() {
         { name: 'GST 18%', rate: 18.00, isDefault: false, isActive: true },
         { name: 'GST 12%', rate: 12.00, isDefault: false, isActive: true },
         { name: 'GST 5%', rate: 5.00, isDefault: false, isActive: true },
-        { name: 'Exempt (Fresh Meat)', rate: 0.00, isDefault: true, isActive: true },
+        { name: 'Exempt (Fresh Flowers)', rate: 0.00, isDefault: true, isActive: true },
     ];
 
-    // Only the exempt fresh-meat class should carry isDefault — clear any stale flag first.
+    // Only the exempt fresh-flowers class should carry isDefault — clear any stale flag first.
     await prisma.taxClass.updateMany({
-        where: { name: { not: 'Exempt (Fresh Meat)' } },
+        where: { name: { not: 'Exempt (Fresh Flowers)' } },
         data: { isDefault: false },
     });
 
@@ -136,33 +136,87 @@ async function main() {
 
     // ─── CATEGORIES ─────────────────────────────────────────────────
     console.log('Seeding categories...');
-    const categories = [
-        { name: 'Chicken', slug: 'chicken', sortOrder: 1 },
-        { name: 'Mutton', slug: 'mutton', sortOrder: 2 },
-        { name: 'Fish', slug: 'fish', sortOrder: 3 },
-        { name: 'Seafood', slug: 'seafood', sortOrder: 4 },
-        { name: 'Ready to Cook', slug: 'ready-to-cook', sortOrder: 5 },
-        { name: 'Eggs', slug: 'eggs', sortOrder: 6 },
-        { name: 'Combo Packs', slug: 'combo-packs', sortOrder: 7 },
+    const categoryTree = [
+        {
+            name: 'Bouquets', slug: 'bouquets', sortOrder: 1,
+            children: [
+                { name: 'Rose Bouquets', slug: 'rose-bouquets', sortOrder: 1 },
+                { name: 'Mixed Flower Bouquets', slug: 'mixed-bouquets', sortOrder: 2 },
+                { name: 'Premium & Luxury', slug: 'premium-bouquets', sortOrder: 3 },
+                { name: 'Dried & Preserved', slug: 'dried-flowers', sortOrder: 4 },
+            ],
+        },
+        {
+            name: 'Cakes', slug: 'cakes', sortOrder: 2,
+            children: [
+                { name: 'Birthday Cakes', slug: 'birthday-cakes', sortOrder: 1 },
+                { name: 'Anniversary Cakes', slug: 'anniversary-cakes', sortOrder: 2 },
+                { name: 'Photo Cakes', slug: 'photo-cakes', sortOrder: 3 },
+                { name: 'Cupcakes & Jars', slug: 'cupcakes', sortOrder: 4 },
+            ],
+        },
+        {
+            // Slug MUST stay "gift-set" — giftset.service.js hardcodes this slug for the bundle feature.
+            name: 'Gift Hampers', slug: 'gift-set', sortOrder: 3,
+            children: [
+                { name: 'Chocolate Hampers', slug: 'chocolate-hampers', sortOrder: 1 },
+                { name: 'Spa & Wellness', slug: 'spa-hampers', sortOrder: 2 },
+                { name: 'Combo Hampers', slug: 'combo-hampers', sortOrder: 3 },
+            ],
+        },
+        {
+            name: 'Plants', slug: 'plants', sortOrder: 4,
+            children: [
+                { name: 'Indoor Plants', slug: 'indoor-plants', sortOrder: 1 },
+                { name: 'Succulents & Terrariums', slug: 'succulents', sortOrder: 2 },
+            ],
+        },
+        {
+            name: 'Personalized Gifts', slug: 'personalized-gifts', sortOrder: 5,
+            children: [
+                { name: 'Photo Frames & Mugs', slug: 'photo-frames-mugs', sortOrder: 1 },
+                { name: 'Cushions & Keepsakes', slug: 'cushions-keepsakes', sortOrder: 2 },
+            ],
+        },
+        {
+            name: 'Chocolates & Sweets', slug: 'chocolates-sweets', sortOrder: 6,
+            children: [],
+        },
+        // Utility categories for the storefront "Build Your Own Bouquet" feature. Not part of
+        // normal nav — the frontend fetches these two by slug directly.
+        {
+            name: 'Bouquet Builder – Stems', slug: 'bouquet-builder-stems', sortOrder: 100,
+            children: [],
+        },
+        {
+            name: 'Bouquet Builder – Add-ons', slug: 'bouquet-builder-addons', sortOrder: 101,
+            children: [],
+        },
     ];
 
-    for (const cat of categories) {
-        const existing = await prisma.category.findFirst({
-            where: { slug: cat.slug, parentId: null },
-        });
-
+    const upsertCategory = async ({ name, slug, sortOrder, parentId = null }) => {
+        const existing = await prisma.category.findFirst({ where: { slug, parentId } });
         if (existing) {
-            await prisma.category.update({
+            return prisma.category.update({
                 where: { id: existing.id },
-                data: { name: cat.name, sortOrder: cat.sortOrder, isActive: true },
-            });
-        } else {
-            await prisma.category.create({
-                data: { ...cat, parentId: null, isActive: true },
+                data: { name, sortOrder, isActive: true },
             });
         }
+        return prisma.category.create({
+            data: { name, slug, sortOrder, parentId, isActive: true },
+        });
+    };
+
+    let categoryCount = 0;
+    for (const { children = [], ...parentData } of categoryTree) {
+        const parent = await upsertCategory(parentData);
+        categoryCount += 1;
+        for (const child of children) {
+            await upsertCategory({ ...child, parentId: parent.id });
+            categoryCount += 1;
+        }
     }
-    console.log(`  ✅ ${categories.length} categories seeded`);
+    console.log(`  ✅ ${categoryCount} categories seeded (${categoryTree.length} top-level)`);
 
     // ─── SHIPPING SETTINGS & METHODS ────────────────────────────────
     console.log('Seeding shipping settings...');

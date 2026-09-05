@@ -3,7 +3,7 @@ const slugify = require('../../utils/slugify');
 const { getOrSetCache, invalidateNamespace } = require('../../utils/cache');
 
 const CACHE_TTL = 300;
-const invalidateCutTypeCache = () => invalidateNamespace('cuttype');
+const invalidateFlowerTypeCache = () => invalidateNamespace('flowertype');
 
 const mapType = (row) => ({
     id: row.id,
@@ -17,7 +17,7 @@ const mapType = (row) => ({
 });
 
 const getAllTypes = async ({ activeOnly = false } = {}) => {
-    const rows = await prisma.cutType.findMany({
+    const rows = await prisma.flowerType.findMany({
         where: activeOnly ? { isActive: true } : undefined,
         orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
@@ -25,12 +25,12 @@ const getAllTypes = async ({ activeOnly = false } = {}) => {
 };
 
 const getPublicTypes = async () =>
-    getOrSetCache(['cuttype'], ['public'], CACHE_TTL, () => getAllTypes({ activeOnly: true }));
+    getOrSetCache(['flowertype'], ['public'], CACHE_TTL, () => getAllTypes({ activeOnly: true }));
 
 const getTypeById = async (id) => {
-    const row = await prisma.cutType.findUnique({ where: { id } });
+    const row = await prisma.flowerType.findUnique({ where: { id } });
     if (!row) {
-        const err = new Error('Cut type not found');
+        const err = new Error('Flower type not found');
         err.statusCode = 404;
         throw err;
     }
@@ -39,15 +39,15 @@ const getTypeById = async (id) => {
 
 const createType = async ({ name, slug, imageUrl, sortOrder, isActive }) => {
     const resolvedSlug = slugify(slug || name);
-    const existing = await prisma.cutType.findUnique({ where: { slug: resolvedSlug } });
+    const existing = await prisma.flowerType.findUnique({ where: { slug: resolvedSlug } });
     if (existing) {
-        const err = new Error('A cut type with this slug already exists');
+        const err = new Error('A flower type with this slug already exists');
         err.statusCode = 409;
         throw err;
     }
 
-    const maxOrder = await prisma.cutType.aggregate({ _max: { sortOrder: true } });
-    const row = await prisma.cutType.create({
+    const maxOrder = await prisma.flowerType.aggregate({ _max: { sortOrder: true } });
+    const row = await prisma.flowerType.create({
         data: {
             name,
             slug: resolvedSlug,
@@ -56,7 +56,7 @@ const createType = async ({ name, slug, imageUrl, sortOrder, isActive }) => {
             isActive: isActive ?? true,
         },
     });
-    await invalidateCutTypeCache();
+    await invalidateFlowerTypeCache();
     return mapType(row);
 };
 
@@ -70,17 +70,17 @@ const updateType = async (id, data) => {
     }
 
     if (data.slug) {
-        const clash = await prisma.cutType.findFirst({
+        const clash = await prisma.flowerType.findFirst({
             where: { slug: data.slug, NOT: { id } },
         });
         if (clash) {
-            const err = new Error('A cut type with this slug already exists');
+            const err = new Error('A flower type with this slug already exists');
             err.statusCode = 409;
             throw err;
         }
     }
 
-    const row = await prisma.cutType.update({
+    const row = await prisma.flowerType.update({
         where: { id },
         data: {
             ...(data.name !== undefined ? { name: data.name } : {}),
@@ -90,14 +90,14 @@ const updateType = async (id, data) => {
             ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
         },
     });
-    await invalidateCutTypeCache();
+    await invalidateFlowerTypeCache();
     return mapType(row);
 };
 
 const deleteType = async (id) => {
     await getTypeById(id);
-    await prisma.cutType.delete({ where: { id } });
-    await invalidateCutTypeCache();
+    await prisma.flowerType.delete({ where: { id } });
+    await invalidateFlowerTypeCache();
 };
 
 const reorderTypes = async (orderedIds) => {
@@ -109,14 +109,14 @@ const reorderTypes = async (orderedIds) => {
 
     await prisma.$transaction(
         orderedIds.map((id, index) =>
-            prisma.cutType.update({
+            prisma.flowerType.update({
                 where: { id },
                 data: { sortOrder: index },
             }),
         ),
     );
 
-    await invalidateCutTypeCache();
+    await invalidateFlowerTypeCache();
 
     return getAllTypes();
 };

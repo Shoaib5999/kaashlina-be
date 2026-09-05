@@ -161,7 +161,7 @@ const createShiprocketOrder = async (orderId) => {
     }
 
     const orderItems = order.items.map((item) => ({
-        name: `${item.variant.product.name} (${item.variant.weightGrams}g)`,
+        name: `${item.variant.product.name} (${item.variant.variantLabel})`,
         sku: item.variant.sku,
         units: item.quantity,
         selling_price: Number(item.priceAtPurchase),
@@ -186,7 +186,7 @@ const createShiprocketOrder = async (orderId) => {
         billing_country: 'India',
         // Phone-only accounts have no email — Shiprocket gets the store's own
         // address rather than null, since this field feeds an external API.
-        billing_email: order.user.email || process.env.STORE_EMAIL || 'orders@faithfulmeat.com',
+        billing_email: order.user.email || process.env.STORE_EMAIL || 'orders@kaashlina.in',
         billing_phone: order.address.phone,
         shipping_is_billing: true,
         order_items: orderItems,

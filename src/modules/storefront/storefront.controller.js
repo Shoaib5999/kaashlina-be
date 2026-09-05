@@ -38,7 +38,7 @@ const getHeroBanners = async (req, res, next) => {
             const slides = all.map((asset) => ({
                 imageUrl: asset.url,
                 linkUrl: '/collection',
-                alt: 'Faithful Meat featured banner',
+                alt: 'Kaashlina featured banner',
                 storageKey: asset.publicId,
             }));
 

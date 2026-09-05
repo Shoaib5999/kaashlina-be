@@ -49,7 +49,7 @@ const addBundleItem = async (bundleProductId, { childProductId, variantId, quant
         },
         include: {
             childProduct: { select: { id: true, name: true, slug: true } },
-            variant: { select: { id: true, weightGrams: true, price: true } },
+            variant: { select: { id: true, variantLabel: true, price: true } },
         },
     });
 
@@ -137,7 +137,7 @@ const getGiftSets = async ({ page = 1, limit = 20 }) =>
                     bundleItems: {
                         include: {
                             childProduct: { select: { id: true, name: true, slug: true } },
-                            variant: { select: { id: true, weightGrams: true, price: true } },
+                            variant: { select: { id: true, variantLabel: true, price: true } },
                         },
                         orderBy: { sortOrder: 'asc' },
                     },

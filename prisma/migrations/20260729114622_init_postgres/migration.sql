@@ -237,7 +237,7 @@ CREATE TABLE "AttributeValue" (
 );
 
 -- CreateTable
-CREATE TABLE "CutType" (
+CREATE TABLE "FlowerType" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
@@ -247,7 +247,7 @@ CREATE TABLE "CutType" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "CutType_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "FlowerType_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -632,7 +632,7 @@ CREATE INDEX "MagicCheckoutSession_expiresAt_idx" ON "MagicCheckoutSession"("exp
 CREATE UNIQUE INDEX "Attribute_code_key" ON "Attribute"("code");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "CutType_slug_key" ON "CutType"("slug");
+CREATE UNIQUE INDEX "FlowerType_slug_key" ON "FlowerType"("slug");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Product_slug_key" ON "Product"("slug");

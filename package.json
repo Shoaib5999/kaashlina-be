@@ -1,5 +1,5 @@
 {
-  "name": "faithful-meat-backend",
+  "name": "kaashlina-backend",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -12,14 +12,15 @@
     "generate": "npx prisma generate",
     "seed:admin": "node prisma/seed-admin.js",
     "seed:master": "node prisma/seed-master.js",
-    "seed:cut-types": "node prisma/seed-cut-types.js",
+    "seed:flower-types": "node prisma/seed-flower-types.js",
+    "seed:occasions": "node prisma/seed-occasions.js",
     "seed:products": "node prisma/seed-products.js",
     "seed:indexes": "node prisma/seed-indexes.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Kaashlina backend API — Node/Express/Prisma/PostgreSQL e-commerce backend for flowers, cakes and gifting.",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1051.0",
     "@prisma/client": "^6.19.3",

@@ -7,7 +7,7 @@ const {
     uploadBanner,
     uploadBanners,
     uploadLogo,
-    uploadCutType,
+    uploadFlowerType,
     uploadCategory,
     uploadSlider,
     uploadProduct,
@@ -20,7 +20,7 @@ router.use(authenticate, authorize('ADMIN', 'MANAGER'));
 router.post('/banner', ...uploadBanner, uploadController.uploadSingle);
 router.post('/banners', ...uploadBanners, uploadController.uploadMultiple);
 router.post('/logo', ...uploadLogo, uploadController.uploadSingle);
-router.post('/cut-type', ...uploadCutType, uploadController.uploadSingle);
+router.post('/flower-type', ...uploadFlowerType, uploadController.uploadSingle);
 router.post('/category', ...uploadCategory, uploadController.uploadSingle);
 router.post('/slider', ...uploadSlider, uploadController.uploadSingle);
 router.post('/product', ...uploadProduct, uploadController.uploadMultiple);
