@@ -10,9 +10,17 @@ the following:
 - [ ] Provision a **new** Supabase (or other Postgres) database dedicated to Kaashlina.
       Fill in `DATABASE_URL` and `DIRECT_URL` in `.env` (or your hosting provider's
       env var UI) with the real pooled and direct connection strings.
-- [ ] Set up a **new** Cloudflare R2 bucket for Kaashlina product/CMS images.
-      Fill in `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
-      `R2_BUCKET_NAME`, `R2_PUBLIC_URL`, `R2_ENDPOINT`.
+- [x] R2 bucket created — `kaashlina`, its own bucket in the same Cloudflare
+      account as faithful-meat (not shared with it). Credentials are already
+      in `.env`.
+- [ ] **Enable public access on the `kaashlina` bucket.** Bucket creation is
+      reachable via the S3 API, but the r2.dev public-URL toggle is a
+      Cloudflare-dashboard-only setting — nothing here can flip it
+      programmatically. Cloudflare dashboard -> R2 -> `kaashlina` -> Settings
+      -> Public access -> Allow Access, then copy the generated
+      `https://pub-xxxxx.r2.dev` URL into `R2_PUBLIC_URL` here **and**
+      `VITE_R2_PUBLIC_URL` in kaashlina-fe/.env. Until this is done, uploaded
+      image URLs will be saved correctly but won't actually load.
 - [ ] (If still using Cloudinary anywhere) set up a **new** Cloudinary account
       and fill in its credentials — do not reuse Faithful Meat's account.
 - [ ] Set up a **new** Redis instance (Railway/Upstash/etc.) and fill in `REDIS_URL`.
